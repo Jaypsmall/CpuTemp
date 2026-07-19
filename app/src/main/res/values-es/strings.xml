@@ -1,0 +1,32 @@
+<resources>
+    <string name="app_name">CpuTemp</string>
+    <string name="drawer_title">MOTOR DEMONÍACO</string>
+    <string name="nav_performance">Herramientas</string>
+    <string name="nav_settings">Ajustes del Sistema</string>
+    <string name="nav_language">Cambiar Idioma</string>
+    <string name="version_label">v1.2.0-PRO</string>
+
+    <string name="engine_status">ESTADO DEL MOTOR</string>
+    <string name="mode_demoniac">MODO DEMONÍACO</string>
+    <string name="mode_professional">MODO PROFESIONAL</string>
+
+    <string name="battery_temp">TEMP. BATERÍA</string>
+    <string name="hardware_profiles">PERFILES DE HARDWARE</string>
+
+    <string name="profile_cool">FRÍO</string>
+    <string name="profile_normal">NORMAL</string>
+    <string name="profile_boost">TURBO</string>
+
+    <string name="permissions_title">PERMISOS</string>
+    <string name="perm_overlay">Mostrar sobre otras apps</string>
+    <string name="btn_grant">CONCEDER</string>
+    <string name="btn_check_root">COMPROBAR ROOT</string>
+
+    <string name="btn_start_overlay">INICIAR HUD</string>
+    <string name="btn_stop_service">DETENER SERVICIO</string>
+
+    <string name="msg_overlay_required">Permiso de superposición requerido</string>
+    <string name="msg_root_ok">Acceso Root OK ✅</string>
+    <string name="msg_profile_active">Perfil %1$s Activado ⚡</string>
+    <string name="msg_service_stopped">SERVICIO DETENIDO</string>
+</resources>

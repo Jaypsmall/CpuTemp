@@ -1,3 +1,32 @@
 <resources>
     <string name="app_name">CpuTemp</string>
+    <string name="drawer_title">DEMONIAC ENGINE</string>
+    <string name="nav_performance">Performance Tools</string>
+    <string name="nav_settings">System Settings</string>
+    <string name="nav_language">Language / Idioma</string>
+    <string name="version_label">v1.2.0-PRO</string>
+
+    <string name="engine_status">ENGINE STATUS</string>
+    <string name="mode_demoniac">DEMONIAC MODE</string>
+    <string name="mode_professional">PROFESSIONAL MODE</string>
+
+    <string name="battery_temp">BATTERY TEMP</string>
+    <string name="hardware_profiles">HARDWARE PROFILES</string>
+
+    <string name="profile_cool">COOL</string>
+    <string name="profile_normal">NORMAL</string>
+    <string name="profile_boost">BOOST</string>
+
+    <string name="permissions_title">PERMISSIONS</string>
+    <string name="perm_overlay">Display Over Other Apps</string>
+    <string name="btn_grant">GRANT</string>
+    <string name="btn_check_root">CHECK ROOT ACCESS</string>
+
+    <string name="btn_start_overlay">START OVERLAY</string>
+    <string name="btn_stop_service">STOP SERVICE</string>
+
+    <string name="msg_overlay_required">Overlay permission required</string>
+    <string name="msg_root_ok">Magisk Root OK ✅</string>
+    <string name="msg_profile_active">Profile %1$s Active ⚡</string>
+    <string name="msg_service_stopped">SERVICE STOPPED</string>
 </resources>
