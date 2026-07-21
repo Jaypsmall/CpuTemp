@@ -1,4 +1,4 @@
- 🌡️ CpuTemp - Root Governor Controller
+# 🌡️ CpuTemp - Root Governor Controller
 
 An advanced hardware optimization tool for rooted Android devices. CpuTemp enables direct management of processor frequencies and governor policies via pre-configured performance profiles, bypassing system restrictions to maintain absolute thermal control.
 
