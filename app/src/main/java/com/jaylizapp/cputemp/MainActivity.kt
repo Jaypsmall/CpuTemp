@@ -2,9 +2,10 @@
 
 package com.jaylizapp.cputemp
 
-import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.Configuration
 import android.os.BatteryManager
 import android.os.Bundle
 import android.provider.Settings
@@ -60,6 +61,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -71,6 +73,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -95,14 +98,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            var isDarkMode by remember { mutableStateOf(true) }
+            var isDarkMode by rememberSaveable { mutableStateOf(true) }
             var hasOverlay by remember { mutableStateOf(false) }
             var liveBatteryTemp by remember { mutableStateOf("-- °C") }
             var currentGovernor by remember { mutableStateOf("unknown") }
             
             val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
             val scope = rememberCoroutineScope()
-            val isEnglish = Locale.getDefault().language == "en"
+            
+            // Usamos stringResource directamente para que Compose reaccione al cambio de configuración
+            val settingsText = stringResource(R.string.nav_settings)
+            val languageText = stringResource(R.string.nav_language)
+            val hardwareInfoText = stringResource(R.string.nav_performance)
 
             LaunchedEffect(Unit) {
                 checkRoot() // Solicitar root al iniciar
@@ -183,7 +190,7 @@ class MainActivity : ComponentActivity() {
 
                                 // 3. BOTONES
                                 DrawerButton(
-                                    text = if (isEnglish) "Settings" else "Ajustes",
+                                    text = settingsText,
                                     icon = Icons.Default.Settings,
                                     isDarkMode = isDarkMode,
                                     primaryColor = MaterialTheme.colorScheme.primary
@@ -194,7 +201,7 @@ class MainActivity : ComponentActivity() {
                                 Spacer(modifier = Modifier.height(16.dp))
 
                                 DrawerButton(
-                                    text = if (isEnglish) "Language" else "Idioma",
+                                    text = languageText,
                                     icon = Icons.Default.Language,
                                     isDarkMode = isDarkMode,
                                     primaryColor = MaterialTheme.colorScheme.primary
@@ -208,7 +215,7 @@ class MainActivity : ComponentActivity() {
                                 Spacer(modifier = Modifier.height(16.dp))
 
                                 DrawerButton(
-                                    text = if (isEnglish) "Hardware Info" else "Info Hardware",
+                                    text = hardwareInfoText,
                                     icon = Icons.Default.Info,
                                     isDarkMode = isDarkMode,
                                     primaryColor = MaterialTheme.colorScheme.primary
@@ -570,18 +577,25 @@ class MainActivity : ComponentActivity() {
         }.start()
     }
 
-    @SuppressLint("UnsafeIntentLaunch")
+    override fun attachBaseContext(newBase: Context) {
+        val locale = Locale(getSharedPreferences("prefs", MODE_PRIVATE).getString("lang", "en") ?: "en")
+        val config = Configuration(newBase.resources.configuration)
+        config.setLocale(locale)
+        super.attachBaseContext(newBase.createConfigurationContext(config))
+    }
+
     private fun updateLocale(languageCode: String) {
+        getSharedPreferences("prefs", MODE_PRIVATE).edit().putString("lang", languageCode).apply()
+        
         val locale = Locale(languageCode)
         Locale.setDefault(locale)
         val config = resources.configuration
         config.setLocale(locale)
-        createConfigurationContext(config)
-        resources.updateConfiguration(config, resources.displayMetrics)
         
-        // Restart activity to apply changes
+        // Esta es la forma más limpia de aplicar el cambio de idioma
         val intent = intent
         finish()
         startActivity(intent)
+        overridePendingTransition(0, 0)
     }
 }
