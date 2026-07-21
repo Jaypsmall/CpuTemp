@@ -3,7 +3,7 @@
     <string name="drawer_title">DEMONIAC ENGINE</string>
     <string name="nav_performance">Performance Tools</string>
     <string name="nav_settings">System Settings</string>
-    <string name="nav_language">Language / Idioma</string>
+    <string name="nav_language">Language</string>
     <string name="version_label">v1.2.0-PRO</string>
 
     <string name="engine_status">ENGINE STATUS</string>

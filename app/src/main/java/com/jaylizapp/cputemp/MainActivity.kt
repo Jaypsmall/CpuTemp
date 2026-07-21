@@ -74,6 +74,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -90,7 +91,33 @@ import java.io.DataOutputStream
 import java.io.File
 import java.util.Locale
 import kotlin.time.Duration.Companion.milliseconds
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import androidx.core.content.edit
+
+object LanguageManager {
+    private val _isEnglish = MutableStateFlow(true)
+    val isEnglish: StateFlow<Boolean> = _isEnglish.asStateFlow()
+
+    fun init(context: Context) {
+        val lang = context.getSharedPreferences("prefs", Context.MODE_PRIVATE).getString("lang", "en")
+        _isEnglish.value = lang == "en"
+    }
+
+    fun toggleLanguage(context: Context) {
+        val newValue = !_isEnglish.value
+        _isEnglish.value = newValue
+        context.getSharedPreferences("prefs", Context.MODE_PRIVATE).edit {
+            putString("lang", if (newValue) "en" else "es")
+        }
+        
+        val locale = Locale(if (newValue) "en" else "es")
+        Locale.setDefault(locale)
+    }
+}
 
 @Suppress("DEPRECATION")
 class MainActivity : ComponentActivity() {
@@ -98,362 +125,363 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        LanguageManager.init(this)
+        
         setContent {
-            var isDarkMode by rememberSaveable { mutableStateOf(true) }
-            var hasOverlay by remember { mutableStateOf(false) }
-            var liveBatteryTemp by remember { mutableStateOf("-- °C") }
-            var currentGovernor by remember { mutableStateOf("unknown") }
+            val isEnglish by LanguageManager.isEnglish.collectAsState()
+            val context = LocalContext.current
             
-            val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-            val scope = rememberCoroutineScope()
+            val config = LocalConfiguration.current
             
-            // Usamos stringResource directamente para que Compose reaccione al cambio de configuración
-            val settingsText = stringResource(R.string.nav_settings)
-            val languageText = stringResource(R.string.nav_language)
-            val hardwareInfoText = stringResource(R.string.nav_performance)
-
-            LaunchedEffect(Unit) {
-                checkRoot() // Solicitar root al iniciar
-                while(true) {
-                    hasOverlay = Settings.canDrawOverlays(this@MainActivity)
-                    val intent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-                    val temp = intent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0
-                    liveBatteryTemp = "${temp / 10.0} °C"
-                    currentGovernor = readCurrentGovernor()
-                    delay(1000.milliseconds)
-                }
+            val localizedContext = remember(isEnglish) {
+                val locale = Locale(if (isEnglish) "en" else "es")
+                val newConfig = Configuration(config)
+                newConfig.setLocale(locale)
+                context.createConfigurationContext(newConfig)
             }
 
-            // Sombra para el título (Solo modo claro para profundidad, modo oscuro limpio)
-            val titleShadow = if (isDarkMode) null else Shadow(
-                color = Color.Black.copy(alpha = 0.3f),
-                offset = Offset(4f, 4f),
-                blurRadius = 10f
-            )
-
-            // Título estilizado: CpuTemp usando colores del sistema
-            val cpuTitle = buildAnnotatedString {
-                val capsStyle = SpanStyle(
-                    color = if (isDarkMode) Color(0xFF8B0000) else Color(0xFF0066FF),
-                    fontWeight = FontWeight.ExtraBold,
-                    shadow = titleShadow
-                )
-                val lowerStyle = SpanStyle(
-                    color = if (isDarkMode) Color.White else Color(0xFF333333),
-                    fontWeight = FontWeight.ExtraBold,
-                    shadow = titleShadow
-                )
-
-                withStyle(style = capsStyle) { append("C") }
-                withStyle(style = lowerStyle) { append("p") }
-                withStyle(style = lowerStyle) { append("u") }
-                withStyle(style = capsStyle) { append("T") }
-                withStyle(style = lowerStyle) { append("e") }
-                withStyle(style = lowerStyle) { append("m") }
-                withStyle(style = lowerStyle) { append("p") }
+            CompositionLocalProvider(LocalContext provides localizedContext) {
+                var isDarkMode by rememberSaveable { mutableStateOf(true) }
+                var hasOverlay by remember { mutableStateOf(false) }
+                var liveBatteryTemp by remember { mutableStateOf("-- °C") }
+                var currentGovernor by remember { mutableStateOf("unknown") }
                 
-                // Termómetro con color adaptativo y sombra
-                withStyle(style = SpanStyle(
-                    color = if (isDarkMode) Color.Unspecified else Color(0xFF0066FF),
-                    shadow = titleShadow
-                )) { 
-                    append(" 🌡️") 
+                val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+                val scope = rememberCoroutineScope()
+                
+                val settingsText = stringResource(R.string.nav_settings)
+                val languageText = stringResource(R.string.nav_language)
+                val hardwareInfoText = stringResource(R.string.nav_performance)
+
+                LaunchedEffect(Unit) {
+                    checkRoot()
+                    while(true) {
+                        hasOverlay = Settings.canDrawOverlays(this@MainActivity)
+                        val intent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                        val temp = intent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0
+                        liveBatteryTemp = "${temp / 10.0} °C"
+                        currentGovernor = readCurrentGovernor()
+                        delay(1000.milliseconds)
+                    }
                 }
-            }
 
-            CpuTempTheme(darkTheme = isDarkMode) {
-                ModalNavigationDrawer(
-                    drawerState = drawerState,
-                    drawerContent = {
-                        ModalDrawerSheet(
-                            drawerContainerColor = if (isDarkMode) Color(0xFF1A1A1A) else ShinySilver,
-                            modifier = Modifier.width(300.dp),
-                            drawerShape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                val titleShadow = if (isDarkMode) null else Shadow(
+                    color = Color.Black.copy(alpha = 0.3f),
+                    offset = Offset(4f, 4f),
+                    blurRadius = 10f
+                )
+
+                val cpuTitle = buildAnnotatedString {
+                    val capsStyle = SpanStyle(
+                        color = if (isDarkMode) Color(0xFF8B0000) else Color(0xFF0066FF),
+                        fontWeight = FontWeight.ExtraBold,
+                        shadow = titleShadow
+                    )
+                    val lowerStyle = SpanStyle(
+                        color = if (isDarkMode) Color.White else Color(0xFF333333),
+                        fontWeight = FontWeight.ExtraBold,
+                        shadow = titleShadow
+                    )
+
+                    withStyle(style = capsStyle) { append("C") }
+                    withStyle(style = lowerStyle) { append("p") }
+                    withStyle(style = lowerStyle) { append("u") }
+                    withStyle(style = capsStyle) { append("T") }
+                    withStyle(style = lowerStyle) { append("e") }
+                    withStyle(style = lowerStyle) { append("m") }
+                    withStyle(style = lowerStyle) { append("p") }
+                    
+                    withStyle(style = SpanStyle(
+                        color = if (isDarkMode) Color.Unspecified else Color(0xFF0066FF),
+                        shadow = titleShadow
+                    )) { 
+                        append(" 🌡️") 
+                    }
+                }
+
+                CpuTempTheme(darkTheme = isDarkMode) {
+                    ModalNavigationDrawer(
+                        drawerState = drawerState,
+                        drawerContent = {
+                            ModalDrawerSheet(
+                                drawerContainerColor = if (isDarkMode) Color(0xFF1A1A1A) else ShinySilver,
+                                modifier = Modifier.width(300.dp),
+                                drawerShape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
                             ) {
-                                // 1. EL TÍTULO
-                                Text(
-                                    text = cpuTitle,
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    modifier = Modifier.padding(vertical = 32.dp)
-                                )
-
-                                // 2. LÍNEA SEPARADORA
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(bottom = 32.dp),
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                                )
-
-                                // 3. BOTONES
-                                DrawerButton(
-                                    text = settingsText,
-                                    icon = Icons.Default.Settings,
-                                    isDarkMode = isDarkMode,
-                                    primaryColor = MaterialTheme.colorScheme.primary
-                                ) {
-                                    scope.launch { drawerState.close() }
-                                }
-                                
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                DrawerButton(
-                                    text = languageText,
-                                    icon = Icons.Default.Language,
-                                    isDarkMode = isDarkMode,
-                                    primaryColor = MaterialTheme.colorScheme.primary
-                                ) {
-                                    scope.launch { 
-                                        drawerState.close()
-                                        updateLocale(if (Locale.getDefault().language == "es") "en" else "es")
-                                    }
-                                }
-                                
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                DrawerButton(
-                                    text = hardwareInfoText,
-                                    icon = Icons.Default.Info,
-                                    isDarkMode = isDarkMode,
-                                    primaryColor = MaterialTheme.colorScheme.primary
-                                ) {
-                                    scope.launch { drawerState.close() }
-                                }
-
-                                // 4. ESPACIADOR FLEXIBLE
-                                Spacer(modifier = Modifier.weight(1f))
-
-                                // 5. CRÉDITOS
                                 Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(24.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Text(
-                                        text = "CpuTemp v1.2.0-PRO",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isDarkMode) Color.Gray else Color.DarkGray
+                                        text = cpuTitle,
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        modifier = Modifier.padding(vertical = 32.dp)
                                     )
-                                    Text(
-                                        text = "Created by JAYLIZ with ❤️",
-                                        fontSize = 9.sp,
-                                        color = if (isDarkMode) Color.Gray.copy(0.7f) else Color.DarkGray.copy(0.7f)
+
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(bottom = 32.dp),
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                                     )
+
+                                    DrawerButton(
+                                        text = settingsText,
+                                        icon = Icons.Default.Settings,
+                                        isDarkMode = isDarkMode,
+                                        primaryColor = MaterialTheme.colorScheme.primary
+                                    ) {
+                                        scope.launch { drawerState.close() }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    DrawerButton(
+                                        text = languageText,
+                                        icon = Icons.Default.Language,
+                                        isDarkMode = isDarkMode,
+                                        primaryColor = MaterialTheme.colorScheme.primary
+                                    ) {
+                                        scope.launch { 
+                                            drawerState.close()
+                                            LanguageManager.toggleLanguage(this@MainActivity)
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    DrawerButton(
+                                        text = hardwareInfoText,
+                                        icon = Icons.Default.Info,
+                                        isDarkMode = isDarkMode,
+                                        primaryColor = MaterialTheme.colorScheme.primary
+                                    ) {
+                                        scope.launch { drawerState.close() }
+                                    }
+
+                                    Spacer(modifier = Modifier.weight(1f))
+
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "CpuTemp v1.2.0-PRO",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isDarkMode) Color.Gray else Color.DarkGray
+                                        )
+                                        Text(
+                                            text = "Created by JAYLIZ with ❤️",
+                                            fontSize = 9.sp,
+                                            color = if (isDarkMode) Color.Gray.copy(0.7f) else Color.DarkGray.copy(0.7f)
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
-                ) {
-                    Scaffold(
-                        topBar = {
-                            CenterAlignedTopAppBar(
-                                title = { },
-                                navigationIcon = {
-                                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                        Icon(Icons.Default.Menu, "Menu")
-                                    }
-                                },
-                                actions = {
-                                    IconButton(onClick = { isDarkMode = !isDarkMode }) {
-                                        Icon(
-                                            imageVector = Icons.Default.DarkMode,
-                                            contentDescription = "Toggle Theme",
-                                            tint = if (isDarkMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                },
-                                colors = TopAppBarDefaults.topAppBarColors(
-                                    containerColor = Color.Transparent,
-                                    scrolledContainerColor = Color.Unspecified,
-                                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
-                                    titleContentColor = MaterialTheme.colorScheme.onBackground,
-                                    actionIconContentColor = MaterialTheme.colorScheme.onBackground
+                    ) {
+                        Scaffold(
+                            topBar = {
+                                CenterAlignedTopAppBar(
+                                    title = { },
+                                    navigationIcon = {
+                                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                            Icon(Icons.Default.Menu, "Menu")
+                                        }
+                                    },
+                                    actions = {
+                                        IconButton(onClick = { isDarkMode = !isDarkMode }) {
+                                            Icon(
+                                                imageVector = Icons.Default.DarkMode,
+                                                contentDescription = "Toggle Theme",
+                                                tint = if (isDarkMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    },
+                                    colors = TopAppBarDefaults.topAppBarColors(
+                                        containerColor = Color.Transparent,
+                                        scrolledContainerColor = Color.Unspecified,
+                                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                                        actionIconContentColor = MaterialTheme.colorScheme.onBackground
+                                    )
                                 )
-                            )
-                        },
-                        containerColor = MaterialTheme.colorScheme.background
-                    ) { padding ->
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(padding)
-                                .padding(horizontal = 16.dp)
-                                .verticalScroll(rememberScrollState()),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Título Principal Estilizado
-                            Text(
-                                text = cpuTitle,
-                                style = MaterialTheme.typography.headlineLarge.copy(
-                                    fontSize = 44.sp,
-                                    lineHeight = 48.sp
-                                ),
-                                modifier = Modifier.padding(vertical = 12.dp)
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Header Status
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                Text(
-                                    stringResource(R.string.engine_status),
-                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 14.sp
-                                )
-                                Text(
-                                    if (isDarkMode) stringResource(R.string.mode_demoniac) else stringResource(R.string.mode_professional),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Monitor Batería
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                shape = RoundedCornerShape(20.dp),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                            },
+                            containerColor = MaterialTheme.colorScheme.background
+                        ) { padding ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(padding)
+                                    .padding(horizontal = 16.dp)
+                                    .verticalScroll(rememberScrollState()),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            stringResource(R.string.battery_temp),
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Black
-                                        )
-                                        Text(
-                                            liveBatteryTemp,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontSize = 32.sp,
-                                            fontWeight = FontWeight.Black
-                                        )
-                                    }
-                                    Icon(
-                                        Icons.Default.CheckCircle,
-                                        null,
-                                        tint = if (isDarkMode) MaterialTheme.colorScheme.primary else Color(0xFF008800),
-                                        modifier = Modifier.size(36.dp)
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Text(
+                                    text = cpuTitle,
+                                    style = MaterialTheme.typography.headlineLarge.copy(
+                                        fontSize = 44.sp,
+                                        lineHeight = 48.sp
+                                    ),
+                                    modifier = Modifier.padding(vertical = 12.dp)
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    Text(
+                                        stringResource(R.string.engine_status),
+                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 14.sp
+                                    )
+                                    Text(
+                                        if (isDarkMode) stringResource(R.string.mode_demoniac) else stringResource(R.string.mode_professional),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.sp
                                     )
                                 }
-                            }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
 
-                            // SECCIÓN DE PERFILES
-                            Text(
-                                stringResource(R.string.hardware_profiles),
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Black,
-                                modifier = Modifier.align(Alignment.Start)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                ProfileButton(
-                                    stringResource(R.string.profile_cool),
-                                    "powersave",
-                                    if (isDarkMode) Color(0xFF00E5FF) else Color(0xFF00D4FF),
-                                    currentGovernor == "powersave",
-                                    Modifier.weight(1f)
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                    shape = RoundedCornerShape(20.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                                 ) {
-                                    ThermalOverlayService.instance?.cambiarModoCpu("cool") ?: applyGovernor("powersave")
-                                }
-                                ProfileButton(
-                                    stringResource(R.string.profile_normal),
-                                    detectNormalGovernor(),
-                                    if (isDarkMode) Color(0xFF76FF03) else MaterialTheme.colorScheme.primary,
-                                    currentGovernor == detectNormalGovernor(),
-                                    Modifier.weight(1f)
-                                ) {
-                                    ThermalOverlayService.instance?.cambiarModoCpu("normal")
-                                        ?: applyGovernor(detectNormalGovernor())
-                                }
-                                ProfileButton(
-                                    stringResource(R.string.profile_boost),
-                                    "performance",
-                                    if (isDarkMode) MaterialTheme.colorScheme.primary else Color(0xFF0044BB),
-                                    currentGovernor == "performance",
-                                    Modifier.weight(1f)
-                                ) {
-                                    ThermalOverlayService.instance?.cambiarModoCpu("boost") ?: applyGovernor("performance")
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Permisos
-                            PermissionRow(stringResource(R.string.perm_overlay), hasOverlay) {
-                                val intent = Intent(
-                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                    "package:$packageName".toUri()
-                                )
-                                startActivity(intent)
-                            }
-
-                            Spacer(modifier = Modifier.height(20.dp))
-
-                            // BOTÓN MAESTRO
-                            Button(
-                                onClick = {
-                                    if (!hasOverlay) {
-                                        Toast.makeText(this@MainActivity, getString(R.string.msg_overlay_required), Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        val intent = Intent(this@MainActivity, ThermalOverlayService::class.java)
-                                        startForegroundService(intent)
-                                        finish()
+                                    Row(
+                                        modifier = Modifier.padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                stringResource(R.string.battery_temp),
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Black
+                                            )
+                                            Text(
+                                                liveBatteryTemp,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontSize = 32.sp,
+                                                fontWeight = FontWeight.Black
+                                            )
+                                        }
+                                        Icon(
+                                            Icons.Default.CheckCircle,
+                                            null,
+                                            tint = if (isDarkMode) MaterialTheme.colorScheme.primary else Color(0xFF008800),
+                                            modifier = Modifier.size(36.dp)
+                                        )
                                     }
-                                },
-                                modifier = Modifier.fillMaxWidth().height(60.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                                shape = RoundedCornerShape(16.dp),
-                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
-                            ) {
-                                Icon(Icons.Default.PowerSettingsNew, null, tint = Color.White, modifier = Modifier.size(24.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    stringResource(R.string.btn_start_overlay),
-                                    color = Color.White,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 16.sp
-                                )
-                            }
-                            
-                            Spacer(modifier = Modifier.height(8.dp))
+                                }
 
-                            TextButton(
-                                onClick = {
-                                    stopService(Intent(this@MainActivity, ThermalOverlayService::class.java))
-                                    Toast.makeText(this@MainActivity, getString(R.string.msg_service_stopped), Toast.LENGTH_SHORT).show()
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
+                                Spacer(modifier = Modifier.height(16.dp))
+
                                 Text(
-                                    stringResource(R.string.btn_stop_service),
-                                    color = if (isDarkMode) Color.Red.copy(alpha = 0.7f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
+                                    stringResource(R.string.hardware_profiles),
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.align(Alignment.Start)
                                 )
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    ProfileButton(
+                                        stringResource(R.string.profile_cool),
+                                        "powersave",
+                                        if (isDarkMode) Color(0xFF00E5FF) else Color(0xFF00D4FF),
+                                        currentGovernor == "powersave",
+                                        Modifier.weight(1f)
+                                    ) {
+                                        ThermalOverlayService.instance?.cambiarModoCpu("cool") ?: applyGovernor("powersave")
+                                    }
+                                    ProfileButton(
+                                        stringResource(R.string.profile_normal),
+                                        detectNormalGovernor(),
+                                        if (isDarkMode) Color(0xFF76FF03) else MaterialTheme.colorScheme.primary,
+                                        currentGovernor == detectNormalGovernor(),
+                                        Modifier.weight(1f)
+                                    ) {
+                                        ThermalOverlayService.instance?.cambiarModoCpu("normal")
+                                            ?: applyGovernor(detectNormalGovernor())
+                                    }
+                                    ProfileButton(
+                                        stringResource(R.string.profile_boost),
+                                        "performance",
+                                        if (isDarkMode) MaterialTheme.colorScheme.primary else Color(0xFF0044BB),
+                                        currentGovernor == "performance",
+                                        Modifier.weight(1f)
+                                    ) {
+                                        ThermalOverlayService.instance?.cambiarModoCpu("boost") ?: applyGovernor("performance")
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                PermissionRow(stringResource(R.string.perm_overlay), hasOverlay) {
+                                    val intent = Intent(
+                                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                        "package:$packageName".toUri()
+                                    )
+                                    startActivity(intent)
+                                }
+
+                                Spacer(modifier = Modifier.height(20.dp))
+
+                                Button(
+                                    onClick = {
+                                        if (!hasOverlay) {
+                                            Toast.makeText(this@MainActivity, getString(R.string.msg_overlay_required), Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            val intent = Intent(this@MainActivity, ThermalOverlayService::class.java)
+                                            startForegroundService(intent)
+                                            finish()
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth().height(60.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                    shape = RoundedCornerShape(16.dp),
+                                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                                ) {
+                                    Icon(Icons.Default.PowerSettingsNew, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        stringResource(R.string.btn_start_overlay),
+                                        color = Color.White,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 16.sp
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                TextButton(
+                                    onClick = {
+                                        stopService(Intent(this@MainActivity, ThermalOverlayService::class.java))
+                                        Toast.makeText(this@MainActivity, getString(R.string.msg_service_stopped), Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        stringResource(R.string.btn_stop_service),
+                                        color = if (isDarkMode) Color.Red.copy(alpha = 0.7f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                                
+                                Spacer(Modifier.height(16.dp))
                             }
-                            
-                            Spacer(Modifier.height(16.dp))
                         }
                     }
                 }
@@ -579,7 +607,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun attachBaseContext(newBase: Context) {
-        val locale = Locale(getSharedPreferences("prefs", MODE_PRIVATE).getString("lang", "en") ?: "en")
+        val locale = Locale(newBase.getSharedPreferences("prefs", MODE_PRIVATE).getString("lang", "en") ?: "en")
         val config = Configuration(newBase.resources.configuration)
         config.setLocale(locale)
         super.attachBaseContext(newBase.createConfigurationContext(config))
@@ -590,10 +618,10 @@ class MainActivity : ComponentActivity() {
         
         val locale = Locale(languageCode)
         Locale.setDefault(locale)
-        val config = resources.configuration
+        val config = Configuration(resources.configuration)
         config.setLocale(locale)
+        resources.updateConfiguration(config, resources.displayMetrics)
         
-        // Esta es la forma más limpia de aplicar el cambio de idioma
         val intent = intent
         finish()
         startActivity(intent)
