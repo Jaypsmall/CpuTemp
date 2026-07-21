@@ -90,6 +90,7 @@ import java.io.DataOutputStream
 import java.io.File
 import java.util.Locale
 import kotlin.time.Duration.Companion.milliseconds
+import androidx.core.content.edit
 
 @Suppress("DEPRECATION")
 class MainActivity : ComponentActivity() {
@@ -585,7 +586,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun updateLocale(languageCode: String) {
-        getSharedPreferences("prefs", MODE_PRIVATE).edit().putString("lang", languageCode).apply()
+        getSharedPreferences("prefs", MODE_PRIVATE).edit { putString("lang", languageCode) }
         
         val locale = Locale(languageCode)
         Locale.setDefault(locale)
