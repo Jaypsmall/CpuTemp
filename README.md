@@ -3,7 +3,6 @@
 **🌡️ CpuTemp** Una herramienta avanzada de optimización de hardware para dispositivos Android rooteados. CpuTemp permite la gestión directa de las frecuencias del procesador y las políticas de gobernador mediante perfiles de rendimiento preconfigurados, evitando las restricciones del sistema para mantener un control térmico absoluto.
 
  <a href="https://github.com/Jaypsmall/CpuTemp/releases/download/root/CpuTemp_PRO_v1.3.0.apk">
-
 <img src="https://img.shields.io/badge/DOWNLOAD_CPUTEMP_PRO_v1.3.0_APK-181717?style=flat&logo=android&logoColor=38B8D8" alt="Descargar versión">
 </a>
 
