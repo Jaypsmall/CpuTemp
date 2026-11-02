@@ -1,4 +1,4 @@
-# 🌡️ CpuTemp - Controlador de Gobernador Root ![Android](https://img.shields.io/badge/Android-181717?style=flat&logo=android&logoColor=38B8D8) ![Kotlin](https://img.shields.io/badge/kotlin-181717?style=flat&logo=kotlin&logoColor=38B8D8) 
+# 🌡️ CpuTemp - Controlador de Gobernador Root ![Android](https://img.shields.io/badge/Android-181717?style=flat&logo=android&logoColor=38B8D8) ![Kotlin](https://img.shields.io/badge/Kotlin-181717?style=flat&logo=kotlin&logoColor=C81AEE)
 
 **🌡️ CpuTemp** Una herramienta avanzada de optimización de hardware para dispositivos Android rooteados. CpuTemp permite la gestión directa de las frecuencias del procesador y las políticas de gobernador mediante perfiles de rendimiento preconfigurados, evitando las restricciones del sistema para mantener un control térmico absoluto.
 
